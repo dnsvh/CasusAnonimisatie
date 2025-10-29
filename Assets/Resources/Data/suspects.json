@@ -1,0 +1,16 @@
+{
+  "items": [
+    {"id":1,"name":"S-001","age":22,"gender":"F","postcode":"1234 AB","district":1,"occupation":"Nurse","sector":"Healthcare","work_shift":"Night","sensitive_condition":"Diabetes","is_murderer":false},
+    {"id":2,"name":"S-002","age":28,"gender":"M","postcode":"2345 BC","district":2,"occupation":"Teacher","sector":"Education","work_shift":"Day","sensitive_condition":"None","is_murderer":false},
+    {"id":3,"name":"S-003","age":34,"gender":"F","postcode":"3456 CD","district":2,"occupation":"Nurse","sector":"Healthcare","work_shift":"Night","sensitive_condition":"Hypertension","is_murderer":true},
+    {"id":4,"name":"S-004","age":36,"gender":"M","postcode":"4567 DE","district":3,"occupation":"Engineer","sector":"Tech","work_shift":"Day","sensitive_condition":"None","is_murderer":false},
+    {"id":5,"name":"S-005","age":42,"gender":"F","postcode":"5678 EF","district":1,"occupation":"Police Officer","sector":"Public","work_shift":"Night","sensitive_condition":"None","is_murderer":false},
+    {"id":6,"name":"S-006","age":29,"gender":"F","postcode":"2345 BC","district":2,"occupation":"Paramedic","sector":"Healthcare","work_shift":"Night","sensitive_condition":"Asthma","is_murderer":false},
+    {"id":7,"name":"S-007","age":33,"gender":"M","postcode":"3456 CD","district":2,"occupation":"Chef","sector":"Hospitality","work_shift":"Evening","sensitive_condition":"None","is_murderer":false},
+    {"id":8,"name":"S-008","age":38,"gender":"F","postcode":"6789 FG","district":3,"occupation":"Nurse","sector":"Healthcare","work_shift":"Day","sensitive_condition":"Diabetes","is_murderer":false},
+    {"id":9,"name":"S-009","age":26,"gender":"M","postcode":"1234 AB","district":1,"occupation":"Barista","sector":"Hospitality","work_shift":"Day","sensitive_condition":"None","is_murderer":false},
+    {"id":10,"name":"S-010","age":31,"gender":"F","postcode":"3456 CD","district":2,"occupation":"Teacher","sector":"Education","work_shift":"Day","sensitive_condition":"None","is_murderer":false},
+    {"id":11,"name":"S-011","age":45,"gender":"M","postcode":"4567 DE","district":3,"occupation":"Doctor","sector":"Healthcare","work_shift":"Day","sensitive_condition":"None","is_murderer":false},
+    {"id":12,"name":"S-012","age":24,"gender":"F","postcode":"1234 AB","district":1,"occupation":"Student","sector":"Education","work_shift":"Evening","sensitive_condition":"None","is_murderer":false}
+  ]
+}
