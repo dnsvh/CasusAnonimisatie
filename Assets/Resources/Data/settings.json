@@ -1,0 +1,26 @@
+﻿{
+  "roundTimeSeconds": 300,
+  "briefingMaxSeconds": 120,
+  "debriefMaxSeconds": 60,
+  "leaderboardSize": 10,
+  "nicknameRegex": "^[A-Za-z0-9]{1,16}$",
+  "ui": {
+    "pressAnyKey": "Druk op een toets...",
+    "talkHint": "Druk op E om te praten",
+    "accuse": "Beschuldig",
+    "suspectList": "Verdachten",
+    "timer": "Tijd",
+    "metrics": "Privacy-metrics",
+    "kAnon": "k-anonimiteit",
+    "lDiv": "l-diversiteit",
+    "roundA": "Ronde A (zonder anonimisering)",
+    "roundB": "Ronde B (met anonimisering)",
+    "youWin": "Je hebt gewonnen!",
+    "youLose": "Je hebt verloren.",
+    "whyHarder": "Waarom was ronde B moeilijker?",
+    "enterNickname": "Voer een bijnaam in:",
+    "save": "Opslaan",
+    "leaderboard": "Ranglijst (Top 10)",
+    "back": "Terug"
+  }
+}

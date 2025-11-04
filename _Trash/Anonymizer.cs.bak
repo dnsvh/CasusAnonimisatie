@@ -1,0 +1,82 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+/// <summary>
+/// Applies simple anonymization for Round B:
+/// - Generalize age into bins (e.g., 20–40)
+/// - Generalize postcode to first 2 digits
+/// - Add bounded noise to age (+/- 2) before binning (perturbation)
+/// - Optionally suppress rare occupations
+/// Also provides Dutch clue phrasing with generalized values.
+/// </summary>
+public static class Anonymizer
+{
+    private static System.Random _rng = new System.Random();
+
+    public static SuspectDataset Clone(SuspectDataset src)
+    {
+        return new SuspectDataset
+        {
+            suspects = src.suspects.Select(s => new SuspectRecord
+            {
+                id = s.id,
+                name = s.name,
+                age = s.age,
+                gender = s.gender,
+                postcode = s.postcode,
+                district = s.district,
+                occupation = s.occupation,
+                sensitive = s.sensitive,
+                isKiller = s.isKiller
+            }).ToList()
+        };
+    }
+
+    public static SuspectDataset ApplyRoundB(SuspectDataset original)
+    {
+        var ds = Clone(original);
+
+        // Add small noise to age, then bucket
+        foreach (var s in ds.suspects)
+        {
+            int noisy = s.age + _rng.Next(-2, 3); // -2..+2
+            s.age = Mathf.Clamp(noisy, 18, 80);   // keep plausible
+            s.postcode = s.postcode.Substring(0, 2) + "xx"; // generalize
+            // suppress rare occupations: if less than 2 people share it, replace with "Onbekend"
+            // We’ll compute later in one pass
+        }
+
+        var countsByOcc = ds.suspects.GroupBy(x => x.occupation).ToDictionary(g => g.Key, g => g.Count());
+        foreach (var s in ds.suspects)
+        {
+            if (countsByOcc.TryGetValue(s.occupation, out int c) && c < 2)
+            {
+                s.occupation = "Onbekend";
+            }
+        }
+        return ds;
+    }
+
+    public static string AgeToDutchRange(int age)
+    {
+        // Put noisy age into coarse bins to illustrate generalization
+        if (age < 25) return "tussen 18 en 24";
+        if (age < 30) return "tussen 25 en 29";
+        if (age < 40) return "tussen 30 en 39";
+        if (age < 50) return "tussen 40 en 49";
+        if (age < 60) return "tussen 50 en 59";
+        return "60 of ouder";
+    }
+
+    public static string MakeAnonymizedAgeClue(int age)
+    {
+        return $"Ze leken {AgeToDutchRange(age)}.";
+    }
+
+    public static string MakeExactAgeClue(int age)
+    {
+        return $"Ze leken ongeveer {age} jaar oud.";
+    }
+}

@@ -1,0 +1,41 @@
+using System.Collections.Generic;
+using System.Linq;
+
+/// <summary>
+/// Very small educational metrics: k-anonymity based on quasi-identifiers (ageBin, gender, postcode2),
+/// l-diversity on 'sensitive' (blood type) within those groups.
+/// </summary>
+public static class MetricsCalculator
+{
+    private static string AgeBin(int age)
+    {
+        if (age < 25) return "18-24";
+        if (age < 30) return "25-29";
+        if (age < 40) return "30-39";
+        if (age < 50) return "40-49";
+        if (age < 60) return "50-59";
+        return "60+";
+    }
+
+    public static (int k, int l) KLForDataset(IEnumerable<SuspectRecord> suspects)
+    {
+        var groups = suspects.GroupBy(s => (AgeBin(s.age), s.gender, Post2(s.postcode)));
+        int k = int.MaxValue;
+        int l = int.MaxValue;
+        foreach (var g in groups)
+        {
+            int size = g.Count();
+            var ldiv = g.Select(x => x.sensitive).Distinct().Count();
+            if (size < k) k = size;
+            if (ldiv < l) l = ldiv;
+        }
+        if (!groups.Any()) return (0, 0);
+        return (k == int.MaxValue ? 0 : k, l == int.MaxValue ? 0 : l);
+    }
+
+    private static string Post2(string pc)
+    {
+        if (string.IsNullOrEmpty(pc)) return "??";
+        return pc.Length >= 2 ? pc.Substring(0, 2) : pc;
+    }
+}

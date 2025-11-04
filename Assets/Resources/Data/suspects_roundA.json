@@ -1,0 +1,16 @@
+﻿{
+  "suspects": [
+    {"id":"S01","name":"Alex Janssen","age":22,"gender":"V","postcode":"1012","district":"Centrum","occupation":"Barista","sensitive":"B+","isKiller":false},
+    {"id":"S02","name":"Bram Visser","age":27,"gender":"M","postcode":"1013","district":"Westerpark","occupation":"Developer","sensitive":"A-","isKiller":false},
+    {"id":"S03","name":"Chris Bakker","age":31,"gender":"X","postcode":"1014","district":"Houthavens","occupation":"Student","sensitive":"AB+","isKiller":false},
+    {"id":"S04","name":"Daan de Vries","age":35,"gender":"M","postcode":"1015","district":"Jordaan","occupation":"Fotograaf","sensitive":"O+","isKiller":false},
+    {"id":"S05","name":"Emma Smit","age":42,"gender":"V","postcode":"1016","district":"Grachtengordel","occupation":"Docent","sensitive":"A+","isKiller":false},
+    {"id":"S06","name":"Fenris Wolters","age":32,"gender":"M","postcode":"1017","district":"De Pijp","occupation":"Designer","sensitive":"B-","isKiller":false},
+    {"id":"S07","name":"Gwen Peters","age":29,"gender":"V","postcode":"1018","district":"Oost","occupation":"Verpleegkundige","sensitive":"O-","isKiller":false},
+    {"id":"S08","name":"Hugo Meijer","age":46,"gender":"M","postcode":"1019","district":"IJburg","occupation":"Schipper","sensitive":"AB-","isKiller":false},
+    {"id":"S09","name":"Iris Kuiper","age":33,"gender":"V","postcode":"1021","district":"Noord","occupation":"Journalist","sensitive":"A+","isKiller":false},
+    {"id":"S10","name":"Jelle Kok","age":24,"gender":"M","postcode":"1022","district":"Noord","occupation":"Beveiliger","sensitive":"B+","isKiller":false},
+    {"id":"S11","name":"Kim Sanders","age":38,"gender":"X","postcode":"1054","district":"Oud-West","occupation":"Projectmanager","sensitive":"O+","isKiller":false},
+    {"id":"S12","name":"Luna Vos","age":28,"gender":"V","postcode":"1092","district":"Oost","occupation":"Data-analist","sensitive":"A-","isKiller":false}
+  ]
+}

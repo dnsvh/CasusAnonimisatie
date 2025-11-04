@@ -1,0 +1,74 @@
+using System.Linq;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class HUDController : MonoBehaviour
+{
+    public static HUDController I;
+
+    [Header("Texts")]
+    public TMP_Text timerText;
+    public TMP_Text listHeader;
+    public TMP_Text metricsText;
+
+    [Header("List")]
+    public Transform listRoot;
+    public GameObject listItemPrefab; // simple TMP_Text prefab
+
+    [Header("Buttons")]
+    public Button accuseButton;
+
+    void Awake() { I = this; }
+
+    void Start()
+    {
+        var ui = GameManager.I.settings.ui;
+        listHeader.text = ui.suspectList;
+        accuseButton.GetComponentInChildren<TMP_Text>().text = ui.accuse;
+        RefreshSuspectList();
+        RefreshMetrics();
+    }
+
+    void Update()
+    {
+        GameManager.I.TickTimer(Time.deltaTime);
+        timerText.text = $"{GameManager.I.settings.ui.timer}: {Mathf.CeilToInt(GameManager.I.roundTimer)}s";
+    }
+
+    public void RefreshSuspectList()
+    {
+        foreach (Transform c in listRoot) Destroy(c.gameObject);
+        foreach (var s in GameManager.I.RemainingSuspects().OrderBy(x => x.name))
+        {
+            var go = Instantiate(listItemPrefab, listRoot);
+            go.GetComponentInChildren<TMP_Text>().text = $"{s.name} ({s.age}, {s.gender}, {s.postcode})";
+            var btn = go.GetComponent<Button>();
+            if (btn != null)
+            {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => Accuse(s.id));
+            }
+        }
+    }
+
+    public void RefreshMetrics()
+    {
+        var remaining = GameManager.I.RemainingSuspects().ToList();
+        var (k, l) = MetricsCalculator.KLForDataset(remaining);
+        var ui = GameManager.I.settings.ui;
+        metricsText.text = $"{ui.metrics}\n{ui.kAnon}: {k}\n{ui.lDiv}: {l}";
+    }
+
+    public void OnAccuseClicked()
+    {
+        // Open a simple scrollable list if you prefer; here, we allow clicking names directly.
+        // This button can act as a helper tooltip in Dutch.
+        DialogueController.I.Show("Klik op een naam in de lijst om te beschuldigen.");
+    }
+
+    void Accuse(string id)
+    {
+        GameManager.I.Accuse(id);
+    }
+}

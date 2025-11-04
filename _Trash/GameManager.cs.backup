@@ -1,0 +1,208 @@
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class GameManager : MonoBehaviour
+{
+    public static GameManager I;
+
+    [Header("State")]
+    public RoundPhase phase = RoundPhase.RoundA;
+    public float roundTimer = 0f;
+    public string killerId;
+
+    [Header("Data")]
+    // Your raw dataset (whatever class you use), optional
+    public object CurrentDataset;
+    // Internal working list for gameplay (uniform shape)
+    private readonly List<Suspect> _workSuspects = new List<Suspect>();
+    public GameSettings settings;
+
+    void Awake()
+    {
+        if (I != null && I != this) { Destroy(gameObject); return; }
+        I = this;
+        DontDestroyOnLoad(gameObject);
+
+        // Settings (tolerate missing asset)
+        if (settings == null) {
+            settings = Resources.Load<GameSettings>("Data/GameSettings");
+            if (settings == null) settings = ScriptableObject.CreateInstance<GameSettings>();
+        }
+
+        // Try to locate an existing dataset in scene (optional)
+        if (CurrentDataset == null) {
+            // If you keep a dataset MonoBehaviour in scene, you could find it here.
+            // Otherwise we'll just create a tiny fallback.
+            CurrentDataset = TryFindDatasetInScene();
+        }
+
+        // Build a working list from whatever dataset you have
+        _workSuspects.Clear();
+        BuildWorkingListFromDataset();
+
+        // Pick a killer if missing
+        if (string.IsNullOrEmpty(killerId) && _workSuspects.Count > 0) {
+            killerId = _workSuspects[Random.Range(0, _workSuspects.Count)].id;
+        }
+    }
+
+    object TryFindDatasetInScene()
+    {
+        // No-op for now; return null and we’ll fallback
+        return null;
+    }
+
+    void BuildWorkingListFromDataset()
+    {
+        // If you don’t have a dataset, create a tiny fallback so the scene runs
+        if (CurrentDataset == null) {
+            for (int i=0; i<8; i++) {
+                _workSuspects.Add(new Suspect {
+                    id = System.Guid.NewGuid().ToString("N"),
+                    name = "Persoon " + (i+1),
+                    age = 20 + i,
+                    gender = (i%2==0 ? "M" : "V"),
+                    district = "Centrum",
+                    postcode = "101" + i,
+                    occupation = "Beroep " + (i%3),
+                    eliminated = false
+                });
+            }
+            Debug.Log("[GameManager] Using fallback suspects (no dataset found).");
+            return;
+        }
+
+        // Reflect: expect a field/property "suspects" that is IEnumerable of records
+        var suspectsSeq = GetMemberValue(CurrentDataset, "suspects") as System.Collections.IEnumerable;
+        if (suspectsSeq == null) {
+            Debug.LogWarning("[GameManager] Dataset has no 'suspects' enumerable. Using fallback.");
+            BuildWorkingListFromDataset_Fallback();
+            return;
+        }
+
+        foreach (var rec in suspectsSeq)
+        {
+            // Map common fields by name (case-insensitive)
+            var s = new Suspect {
+                id         = GetField<string>(rec, "id", "Id", "ID") ?? System.Guid.NewGuid().ToString("N"),
+                name       = GetField<string>(rec, "name", "Name") ?? "Onbekend",
+                age        = GetField<int>(rec, "age", "Age"),
+                gender     = GetField<string>(rec, "gender", "Gender") ?? "?",
+                district   = GetField<string>(rec, "district", "District") ?? "?",
+                postcode   = GetField<string>(rec, "postcode", "Postcode", "Zip", "ZipCode", "PostalCode") ?? "?",
+                occupation = GetField<string>(rec, "occupation", "Job", "Profession") ?? "?",
+                eliminated = false
+            };
+            _workSuspects.Add(s);
+        }
+
+        if (_workSuspects.Count == 0) {
+            Debug.LogWarning("[GameManager] suspects enumerable was empty. Using fallback.");
+            BuildWorkingListFromDataset_Fallback();
+        }
+    }
+
+    void BuildWorkingListFromDataset_Fallback()
+    {
+        for (int i=0; i<6; i++) {
+            _workSuspects.Add(new Suspect {
+                id = System.Guid.NewGuid().ToString("N"),
+                name = "Persoon " + (i+1),
+                age = 25 + i,
+                gender = (i%2==0 ? "M" : "V"),
+                district = "Zuid",
+                postcode = "102" + i,
+                occupation = "Beroep " + (i%3),
+                eliminated = false
+            });
+        }
+    }
+
+    // ---- Public API used by HUD / NPCs ----
+
+    public IEnumerable<Suspect> RemainingSuspects() => _workSuspects.Where(s => !s.eliminated);
+
+    // keepPredicate == true means "keep as candidate"; others get eliminated
+    public void EliminateByClue(System.Func<Suspect, bool> keepPredicate)
+    {
+        foreach (var s in _workSuspects)
+            if (!keepPredicate(s)) s.eliminated = true;
+    }
+
+    public Suspect GetKiller() => _workSuspects.FirstOrDefault(s => s.id == killerId);
+
+    public void Accuse(string suspectId)
+    {
+        if (string.IsNullOrEmpty(suspectId)) return;
+
+        bool correct = suspectId == killerId;
+        Debug.Log($"[GameManager] Accuse {suspectId}. Correct={correct}. Phase={phase}");
+
+        if (phase == RoundPhase.RoundA)
+        {
+            if (correct)
+            {
+                // Prepare Round B: reset eliminations, keep same killer
+                foreach (var s in _workSuspects) s.eliminated = false;
+                phase = RoundPhase.RoundB;
+                SceneManager.LoadScene("TheCityAnon");
+                DialogueController.I?.Show("Goed gedaan! Ronde B: aanwijzingen zijn nu geanonimiseerd.");
+            }
+            else
+            {
+                DialogueController.I?.Show("Helaas, verkeerde verdachte. Terug naar Start.");
+                SceneManager.LoadScene("Start");
+            }
+        }
+        else // Round B
+        {
+            DebriefState.LastWin = correct;
+            SceneManager.LoadScene("Debrief");
+        }
+    }
+
+    public void TickTimer(float dt) => roundTimer += dt;
+
+    // ---- reflection helpers ----
+    static object GetMemberValue(object obj, string name)
+    {
+        if (obj == null) return null;
+        var t = obj.GetType();
+        var f = t.GetField(name, BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.IgnoreCase);
+        if (f != null) return f.GetValue(obj);
+        var p = t.GetProperty(name, BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.IgnoreCase);
+        if (p != null) return p.GetValue(obj);
+        return null;
+    }
+    static T GetField<T>(object obj, params string[] names)
+    {
+        foreach (var n in names)
+        {
+            var val = GetMemberValue(obj, n);
+            if (val is T ok) return ok;
+            // Try convert simple numeric/string
+            if (val != null) {
+                try { return (T)System.Convert.ChangeType(val, typeof(T)); } catch {}
+            }
+        }
+        return default(T);
+    }
+}
+
+// Minimal uniform model for gameplay
+[System.Serializable]
+public class Suspect {
+    public string id;
+    public string name;
+    public int age;
+    public string gender;
+    public string district;
+    public string postcode;
+    public string occupation;
+    public bool eliminated;
+}
+
+
