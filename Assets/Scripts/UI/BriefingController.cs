@@ -52,7 +52,8 @@ Druk op een toets of knop om te starten…";
                         Gamepad.current.selectButton.wasPressedThisFrame);
 
         if (_elapsed >= minSecondsBeforeContinue && (keyboard || mouse || gamepad)) {
-            SceneManager.LoadScene("TheCity");
+            if (GameManager.I != null) GameManager.I.ResetToRoundA(); SceneManager.LoadScene("TheCity");
         }
     }
 }
+

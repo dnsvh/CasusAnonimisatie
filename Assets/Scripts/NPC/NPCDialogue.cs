@@ -1,31 +1,96 @@
 ﻿using UnityEngine;
-
-public class NPCDialogue : MonoBehaviour {
-    [TextArea] public string introDutch = "Hoi! Ik zag iets…";
+public class NPCDialogue : MonoBehaviour
+{
+    [TextArea] public string introDutch = "Hoi! Ik heb iets gezien.";
     public ClueType clueType = ClueType.AgeExact;
 
-    // No hard Suspect dependency; just pass the fields we need
-    public string GetClueLine(int killerAge, string killerGender, string killerDistrict, string killerPostcode, string killerOccupation, bool anonymized) {
-        switch (clueType) {
-            case ClueType.AgeExact:
-                return anonymized ? $"Ze leken {NPCInteractable.AgeBin(killerAge)}."
-                                  : $"Ze leken {killerAge} jaar oud.";
-            case ClueType.AgeRange:
-                return $"Ze leken {NPCInteractable.AgeBin(killerAge)}.";
-            case ClueType.Gender:
-                return $"Het was iemand van het geslacht {killerGender}.";
-            case ClueType.District:
-                return anonymized ? $"Ik denk uit dezelfde wijk, misschien met postcode die met {SafePrefix(killerPostcode,2)} begint."
-                                  : $"Ik denk uit de wijk {killerDistrict}.";
-            case ClueType.Postcode2:
-                return anonymized ? $"Postcode begon met {SafePrefix(killerPostcode,2)}."
-                                  : $"Postcode was exact {killerPostcode}.";
-            case ClueType.Occupation:
-                return anonymized ? $"Beroep? Geen idee, kan van alles zijn."
-                                  : $"Ik meen een {killerOccupation} te hebben gezien.";
-        }
-        return "";
-    }
+    // Generate the line shown to the player.
+    // Round A => precise; Round B => generalized.
+    public string GetClueLine(Suspect target, bool anonymized)
+    {
+        int age = target.age;
+        string gender = target.gender;
+        string district = target.district;
+        string postcode = target.postcode;
+        string occupation = target.occupation;
 
-    string SafePrefix(string s, int n) => string.IsNullOrEmpty(s) || s.Length < n ? s : s.Substring(0, n);
+        switch (clueType)
+        {
+            case ClueType.AgeExact:
+                return anonymized
+                    ? $"Ze leken {Anonymizer.AgeBin(age)}."
+                    : $"Ze leken ongeveer {age} jaar.";
+
+            case ClueType.AgeRange:
+                // FORCE precise in Round A, generalized in Round B
+                return anonymized
+                    ? $"Ze leken {Anonymizer.AgeBin(age)}."
+                    : $"Ze leken ongeveer {age} jaar.";
+
+            case ClueType.Gender:
+                return $"Ik denk dat het een {(gender == "M" ? "man" : "vrouw")} was.";
+
+            case ClueType.District:
+                return anonymized
+                    ? $"Ik zag ze in de buurt van {district}."
+                    : $"Ik zag ze in {district}.";
+
+            case ClueType.Postcode2:
+                // FORCE precise in Round A, generalized in Round B
+                return anonymized
+                    ? $"Postcode begon met {Anonymizer.GeneralizePostcode(postcode, 2)}."
+                    : $"De postcode was {postcode}.";
+
+            case ClueType.Occupation:
+                return anonymized
+                    ? $"Het leek alsof ze aan het werk waren."
+                    : $"Ik hoorde dat ze werken als {occupation}.";
+
+            default:
+                return "Ik weet het niet zeker.";
+        }
+    }
+    public string GetClueLine(Suspect target, bool anonymized, ClueType typeOverride)
+    {
+        int age = target.age;
+        string gender = target.gender;
+        string district = target.district;
+        string postcode = target.postcode;
+        string occupation = target.occupation;
+
+        switch (typeOverride)
+        {
+            case ClueType.AgeExact:
+                // In RoundB we generalize age to a bin; in RoundA we show exact
+                return anonymized
+                    ? $"Ze leken {Anonymizer.AgeBin(age)}."
+                    : $"Ze leken ongeveer {age} jaar.";
+
+            case ClueType.AgeRange:
+                return anonymized
+                    ? $"Ze leken {Anonymizer.AgeBin(age)}."
+                    : $"Ze leken ongeveer {age} jaar.";
+
+            case ClueType.Gender:
+                return $"Ik denk dat het een {(gender == "M" ? "man" : "vrouw")} was.";
+
+            case ClueType.District:
+                return anonymized
+                    ? $"Ik zag ze in de buurt van {district}."
+                    : $"Ik zag ze in {district}.";
+
+            case ClueType.Postcode2:
+                return anonymized
+                    ? $"Postcode begon met {Anonymizer.GeneralizePostcode(postcode, 2)}."
+                    : $"De postcode was {postcode}.";
+
+            case ClueType.Occupation:
+                return anonymized
+                    ? $"Het leek alsof ze aan het werk waren."
+                    : $"Ik hoorde dat ze werken als {occupation}.";
+
+            default:
+                return "Ik weet het niet zeker.";
+        }
+    }
 }

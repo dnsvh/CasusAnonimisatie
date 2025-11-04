@@ -39,7 +39,8 @@ public class StartController : MonoBehaviour
         if (keyboard || mouse || gamepad)
         {
             // Go to Briefing scene
-            SceneManager.LoadScene("Briefing");
+            if (GameManager.I != null) GameManager.I.ResetToRoundA(); SceneManager.LoadScene("Briefing");
         }
     }
 }
+
