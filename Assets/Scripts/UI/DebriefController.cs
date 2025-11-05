@@ -160,7 +160,8 @@ public class DebriefController : MonoBehaviour
         var gm = GameManager.I;
 
         SetText(titleText, gm && gm.lastAccuseCorrect ? "Gefeliciteerd!" : "Lastig hè?");
-        SetText(killerText, $"De dader was: {gm?.GetKiller()?.name ?? "onbekend"}");
+        // 🔸 Round B killer only
+        SetText(killerText, $"De dader was: {gm?.GetKillerOfRoundB()?.name ?? "onbekend"}");
 
         float total = gm && gm.lastTotalSeconds > 0f
             ? gm.lastTotalSeconds
@@ -199,10 +200,10 @@ public class DebriefController : MonoBehaviour
         SetText(explanationText,
             "Uitleg\n" +
             "• Je speelde twee rondes: Round A (precies) en Round B (geanonimiseerd).\n" +
+            "• De dader in Round B is anders dan in Round A.\n" +
             "• Totale tijd = tijd van beide rondes samen.\n" +
             "• Win je en sta je bij de snelste 10? Vul je naam in en sla je tijd op.\n" +
-            "• Hoger k/l = meer privacy → zoeken wordt lastiger.\n" +
-            "• Vergelijk je gevoel tussen Round A en B: hoe beïnvloedt anonimisering je strategie?\n",
+            "• Hoger k/l = meer privacy → zoeken wordt lastiger.\n",
             wrap: true);
     }
 
@@ -391,7 +392,7 @@ public class DebriefController : MonoBehaviour
         areaRT.offsetMin = new Vector2(6, 6);
         areaRT.offsetMax = new Vector2(-6, -6);
 
-        // Viewport with RectMask2D (this is key)
+        // Viewport with RectMask2D
         var vpGO = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
         vpGO.transform.SetParent(area.transform, false);
         var vpRT = vpGO.GetComponent<RectTransform>();

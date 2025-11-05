@@ -22,7 +22,9 @@ public class GameManager : MonoBehaviour
     public SuspectDataset datasetA;
     public SuspectDataset datasetB;
 
-    [SerializeField] private string killerId = null;
+    // 🔸 Separate killers per round
+    [SerializeField] private string killerIdA = null;
+    [SerializeField] private string killerIdB = null;
 
     // Clue-variatie tracking
     private readonly HashSet<ClueType> usedCluesA = new HashSet<ClueType>();
@@ -43,15 +45,29 @@ public class GameManager : MonoBehaviour
             datasetA = GenerateSynthetic(30);
 
         if (datasetB == null || datasetB.suspects == null || datasetB.suspects.Count == 0)
-            datasetB = CloneDataset(datasetA);
+            datasetB = CloneDataset(datasetA); // OK to keep; killers now differ
 
-        if (string.IsNullOrEmpty(killerId) && datasetA.suspects.Count > 0)
-            killerId = datasetA.suspects[UnityEngine.Random.Range(0, datasetA.suspects.Count)].id;
+        // Ensure Round A killer
+        if (string.IsNullOrEmpty(killerIdA) && datasetA.suspects.Count > 0)
+            killerIdA = datasetA.suspects[UnityEngine.Random.Range(0, datasetA.suspects.Count)].id;
 
-        if (!datasetB.suspects.Any(s => s.id == killerId) && datasetB.suspects.Count > 0)
-            killerId = datasetB.suspects[0].id;
+        // Ensure Round B killer (prefer different from A)
+        if ((string.IsNullOrEmpty(killerIdB) || killerIdB == killerIdA) && datasetB.suspects.Count > 0)
+        {
+            if (datasetB.suspects.Count > 1)
+            {
+                var pool = datasetB.suspects.Where(s => s.id != killerIdA).ToList();
+                var pick = pool.Count > 0 ? pool[UnityEngine.Random.Range(0, pool.Count)]
+                                          : datasetB.suspects[0];
+                killerIdB = pick.id;
+            }
+            else
+            {
+                killerIdB = datasetB.suspects[0].id;
+            }
+        }
 
-        Debug.Log($"[GM] Awake. Phase={phase}, killerId={killerId}");
+        Debug.Log($"[GM] Awake. Phase={phase}, killerIdA={killerIdA}, killerIdB={killerIdB}");
     }
 
     public void TickTimer(float dt) => roundTimer += dt;
@@ -61,24 +77,40 @@ public class GameManager : MonoBehaviour
     public IEnumerable<Suspect> RemainingSuspects()
         => CurrentDataset().suspects.Where(s => !s.eliminated);
 
+    // 🔸 For existing callers: returns killer for the **current** round
     public Suspect GetKiller()
-        => CurrentDataset().suspects.FirstOrDefault(s => s.id == killerId);
+        => (phase == RoundPhase.RoundB)
+            ? datasetB?.suspects?.FirstOrDefault(s => s.id == killerIdB)
+            : datasetA?.suspects?.FirstOrDefault(s => s.id == killerIdA);
 
-    void EnsureKillerSelected()
+    // 🔸 Explicit helpers (Debrief uses Round B)
+    public Suspect GetKillerOfRoundA() => datasetA?.suspects?.FirstOrDefault(s => s.id == killerIdA);
+    public Suspect GetKillerOfRoundB() => datasetB?.suspects?.FirstOrDefault(s => s.id == killerIdB);
+
+    void EnsureKillerSelectedForCurrentRound()
     {
-        if (!string.IsNullOrEmpty(killerId)) return;
-
-        var src = (datasetA != null && datasetA.suspects != null && datasetA.suspects.Count > 0)
-            ? datasetA.suspects
-            : datasetB?.suspects;
-
-        if (src != null && src.Count > 0)
+        if (phase == RoundPhase.RoundA)
         {
-            var pick = src[UnityEngine.Random.Range(0, src.Count)];
-            killerId = pick.id;
-            Debug.Log($"[GM] Killer fixed at {pick.name} ({killerId})");
+            if (string.IsNullOrEmpty(killerIdA) && datasetA?.suspects?.Count > 0)
+                killerIdA = datasetA.suspects[UnityEngine.Random.Range(0, datasetA.suspects.Count)].id;
+        }
+        else
+        {
+            if (string.IsNullOrEmpty(killerIdB) && datasetB?.suspects?.Count > 0)
+            {
+                // Prefer different from A if possible
+                var pool = (datasetB.suspects.Count > 1)
+                    ? datasetB.suspects.Where(s => s.id != killerIdA).ToList()
+                    : datasetB.suspects.ToList();
+
+                var pick = pool[UnityEngine.Random.Range(0, pool.Count)];
+                killerIdB = pick.id;
+            }
         }
     }
+
+    // Backward-compat call used by Accuse: keep name the same
+    void EnsureKillerSelected() => EnsureKillerSelectedForCurrentRound();
 
     public void EliminateByClue(Func<Suspect, bool> keepPredicate)
     {
@@ -100,8 +132,13 @@ public class GameManager : MonoBehaviour
         roundTimer = 0f;
         roundASeconds = 0f;
         roundBSeconds = 0f;
+        lastTotalSeconds = 0f;
         usedCluesA.Clear();
         foreach (var s in datasetA.suspects) s.eliminated = false;
+
+        // (Re)roll Round A killer if somehow missing
+        if (string.IsNullOrEmpty(killerIdA) && datasetA.suspects.Count > 0)
+            killerIdA = datasetA.suspects[UnityEngine.Random.Range(0, datasetA.suspects.Count)].id;
     }
 
     public void BeginRoundB()
@@ -114,16 +151,34 @@ public class GameManager : MonoBehaviour
         usedCluesB.Clear();
         foreach (var s in datasetB.suspects) s.eliminated = false;
 
-        Debug.Log($"[GM] BeginRoundB. Keeping killerId={killerId}");
+        // (Re)roll Round B killer, ensure different from A if possible
+        if (datasetB?.suspects != null && datasetB.suspects.Count > 0)
+        {
+            if (datasetB.suspects.Count > 1)
+            {
+                var pool = datasetB.suspects.Where(s => s.id != killerIdA).ToList();
+                var pick = pool.Count > 0 ? pool[UnityEngine.Random.Range(0, pool.Count)]
+                                          : datasetB.suspects[0];
+                killerIdB = pick.id;
+            }
+            else
+            {
+                killerIdB = datasetB.suspects[0].id;
+            }
+        }
+
+        Debug.Log($"[GM] BeginRoundB. killerIdA={killerIdA}, killerIdB={killerIdB}");
     }
 
     // Accuse flow: correct in A -> naar B; incorrect in A -> Start.
     // In B -> Debrief (win/lose).
     public void Accuse(string suspectId)
     {
-        EnsureKillerSelected();
+        EnsureKillerSelectedForCurrentRound();
+
         var killer = GetKiller();
-        bool correct = (killer != null && suspectId == killer.id);
+        var expectedId = (phase == RoundPhase.RoundB) ? killerIdB : killerIdA;
+        bool correct = (killer != null && suspectId == expectedId);
 
         Debug.Log($"[GM] Accuse called with suspectId={suspectId}");
         Debug.Log($"[GM] Killer is {killer?.name} ({killer?.id}) in phase {phase}");
@@ -239,7 +294,7 @@ public class GameManager : MonoBehaviour
         {
             ds.suspects.Add(new Suspect
             {
-                id = s.id,
+                id = s.id,               // keeping ids is fine; we pick a different killerIdB
                 name = s.name,
                 age = s.age,
                 gender = s.gender,
