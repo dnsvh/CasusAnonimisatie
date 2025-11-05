@@ -8,20 +8,26 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager I;
 
-    public GameSettings settings;                  // Optional: ScriptableObject in Resources/Data/GameSettings
+    public GameSettings settings;
     public RoundPhase phase = RoundPhase.RoundA;
+
+    // Timer die in de HUD wordt opgeteld
     public float roundTimer = 0f;
 
-    public SuspectDataset datasetA;                // Round A dataset (precise)
-    public SuspectDataset datasetB;                // Round B dataset (same ids; anonymized presentation)
+    // Tijden per ronde + laatst bekende totaaltijd (voor Debrief/Leaderboard)
+    public float roundASeconds = 0f;
+    public float roundBSeconds = 0f;
+    public float lastTotalSeconds = 0f;
 
-    [SerializeField] private string killerId = null;   // Persist SAME killer across rounds
+    public SuspectDataset datasetA;
+    public SuspectDataset datasetB;
 
-    // Track used clue types per round (for variety)
+    [SerializeField] private string killerId = null;
+
+    // Clue-variatie tracking
     private readonly HashSet<ClueType> usedCluesA = new HashSet<ClueType>();
     private readonly HashSet<ClueType> usedCluesB = new HashSet<ClueType>();
 
-    // Debrief needs to know last result
     public bool lastAccuseCorrect = false;
 
     void Awake()
@@ -30,47 +36,33 @@ public class GameManager : MonoBehaviour
         I = this;
         DontDestroyOnLoad(gameObject);
 
-        // Try to load settings from Resources (optional)
         if (settings == null)
-        {
             settings = Resources.Load<GameSettings>("Data/GameSettings");
-        }
 
-        // Ensure we have datasets
         if (datasetA == null || datasetA.suspects == null || datasetA.suspects.Count == 0)
             datasetA = GenerateSynthetic(30);
 
         if (datasetB == null || datasetB.suspects == null || datasetB.suspects.Count == 0)
             datasetB = CloneDataset(datasetA);
 
-        // Pick a killer if not set yet (from A)
         if (string.IsNullOrEmpty(killerId) && datasetA.suspects.Count > 0)
             killerId = datasetA.suspects[UnityEngine.Random.Range(0, datasetA.suspects.Count)].id;
 
-        // Ensure B also contains that id (fallback if not)
         if (!datasetB.suspects.Any(s => s.id == killerId) && datasetB.suspects.Count > 0)
             killerId = datasetB.suspects[0].id;
 
         Debug.Log($"[GM] Awake. Phase={phase}, killerId={killerId}");
     }
 
-    // Called from HUD update
     public void TickTimer(float dt) => roundTimer += dt;
 
     public SuspectDataset CurrentDataset() => (phase == RoundPhase.RoundB) ? datasetB : datasetA;
 
     public IEnumerable<Suspect> RemainingSuspects()
-    {
-        var data = CurrentDataset();
-        return data.suspects.Where(s => !s.eliminated);
-    }
+        => CurrentDataset().suspects.Where(s => !s.eliminated);
 
     public Suspect GetKiller()
-    {
-        // Always look in the CURRENT round dataset by id
-        var data = CurrentDataset();
-        return data.suspects.FirstOrDefault(s => s.id == killerId);
-    }
+        => CurrentDataset().suspects.FirstOrDefault(s => s.id == killerId);
 
     void EnsureKillerSelected()
     {
@@ -88,15 +80,12 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // Keep only suspects that match the predicate; others get eliminated=true
     public void EliminateByClue(Func<Suspect, bool> keepPredicate)
     {
         var data = CurrentDataset();
         foreach (var s in data.suspects)
-        {
             if (!keepPredicate(s))
                 s.eliminated = true;
-        }
     }
 
     public void ResetEliminationsForCurrentRound()
@@ -109,22 +98,27 @@ public class GameManager : MonoBehaviour
     {
         phase = RoundPhase.RoundA;
         roundTimer = 0f;
+        roundASeconds = 0f;
+        roundBSeconds = 0f;
         usedCluesA.Clear();
         foreach (var s in datasetA.suspects) s.eliminated = false;
-        Debug.Log("[GM] ResetToRoundA");
     }
 
     public void BeginRoundB()
     {
+        // Leg de eindtijd van A vast voordat we resetten
+        roundASeconds = roundTimer;
+
         phase = RoundPhase.RoundB;
         roundTimer = 0f;
         usedCluesB.Clear();
         foreach (var s in datasetB.suspects) s.eliminated = false;
+
         Debug.Log($"[GM] BeginRoundB. Keeping killerId={killerId}");
     }
 
-    // Accuse flow: correct in A -> go to B; incorrect in A -> restart.
-    // In B -> go to Debrief with result.
+    // Accuse flow: correct in A -> naar B; incorrect in A -> Start.
+    // In B -> Debrief (win/lose).
     public void Accuse(string suspectId)
     {
         EnsureKillerSelected();
@@ -134,53 +128,55 @@ public class GameManager : MonoBehaviour
         Debug.Log($"[GM] Accuse called with suspectId={suspectId}");
         Debug.Log($"[GM] Killer is {killer?.name} ({killer?.id}) in phase {phase}");
 
-        // write result to both a field and PlayerPrefs (fallback for Debrief)
-        lastAccuseCorrect = correct;
-        PlayerPrefs.SetInt("LastWon", correct ? 1 : 0);
-        PlayerPrefs.SetString("LastKillerId", killer?.id ?? "");
-        PlayerPrefs.SetString("LastKillerName", killer?.name ?? "");
-        PlayerPrefs.Save();
-
         if (phase == RoundPhase.RoundA)
         {
             if (correct)
             {
+                lastAccuseCorrect = true;
                 Debug.Log("[GM] Accuse: CORRECT (Round A) -> Round B");
-                BeginRoundB(); // keeps killerId
+                BeginRoundB(); // note: zet roundASeconds
                 SceneManager.LoadScene("TheCityAnon");
             }
             else
             {
+                lastAccuseCorrect = false;
+                // Voor volledigheid: totale tijd is alleen ronde A
+                roundASeconds = roundTimer;
+                lastTotalSeconds = roundASeconds;
                 Debug.Log("[GM] Accuse: WRONG (Round A) -> Start");
                 SceneManager.LoadScene("Start");
             }
         }
-        else // Round B
+        else
         {
-            if (correct)
-                Debug.Log("[GM] Accuse (Round B): CORRECT. To Debrief.");
-            else
-                Debug.Log("[GM] Accuse (Round B): WRONG. To Debrief.");
+            // Leg eindtijd ronde B vast en totaliseer
+            roundBSeconds = roundTimer;
+            lastTotalSeconds = Mathf.Max(0f, roundASeconds) + Mathf.Max(0f, roundBSeconds);
 
+            if (correct)
+            {
+                lastAccuseCorrect = true;
+                Debug.Log("[GM] Accuse (Round B): CORRECT. To Debrief.");
+            }
+            else
+            {
+                lastAccuseCorrect = false;
+                Debug.Log("[GM] Accuse (Round B): WRONG. To Debrief.");
+            }
             SceneManager.LoadScene("Debrief");
         }
     }
 
-
-    // --- Clue variety: treat AgeExact/AgeRange as the same "age bucket" ---
-
+    // --- Clue variety (AgeExact/AgeRange = één “age bucket”) ---
     public ClueType ChooseClueType(ClueType preferred)
     {
         var used = (phase == RoundPhase.RoundB) ? usedCluesB : usedCluesA;
-
         bool Age(ClueType t) => t == ClueType.AgeExact || t == ClueType.AgeRange;
         bool anyAgeUsed = used.Contains(ClueType.AgeExact) || used.Contains(ClueType.AgeRange);
 
-        // If preferred is unused and (not age OR no age used yet), take it.
         if (!used.Contains(preferred) && (!Age(preferred) || !anyAgeUsed))
             return preferred;
 
-        // Try to find any non-age unused type first (for variety)
         var all = new ClueType[] {
             ClueType.Gender, ClueType.District, ClueType.Postcode2, ClueType.Occupation,
             ClueType.AgeExact, ClueType.AgeRange
@@ -189,12 +185,10 @@ public class GameManager : MonoBehaviour
             if (!used.Contains(t) && (!Age(t) || !anyAgeUsed))
                 return t;
 
-        // If everything non-age is used, allow one age (if not both already used)
         foreach (var t in new ClueType[] { ClueType.AgeExact, ClueType.AgeRange })
             if (!used.Contains(t))
                 return t;
 
-        // All used: allow repeat of the preferred
         return preferred;
     }
 
@@ -202,19 +196,16 @@ public class GameManager : MonoBehaviour
     {
         var used = (phase == RoundPhase.RoundB) ? usedCluesB : usedCluesA;
 
-        // Age bucket: using one blocks the other
         if (t == ClueType.AgeExact || t == ClueType.AgeRange)
         {
             used.Add(ClueType.AgeExact);
             used.Add(ClueType.AgeRange);
             return;
         }
-
         used.Add(t);
     }
 
-    // --- Helpers to create data if none exists ---
-
+    // --- dataset helpers ---
     private SuspectDataset GenerateSynthetic(int count)
     {
         var rnd = new System.Random();
@@ -248,7 +239,7 @@ public class GameManager : MonoBehaviour
         {
             ds.suspects.Add(new Suspect
             {
-                id = s.id,               // IMPORTANT: preserve id across rounds
+                id = s.id,
                 name = s.name,
                 age = s.age,
                 gender = s.gender,

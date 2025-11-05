@@ -67,10 +67,9 @@ public class GameHUDController : MonoBehaviour
             if (text != null)
                 text.text = $"{s.name} ({s.age}, {s.gender}, {s.postcode})";
 
-            // Capture the id in a local to avoid closure issues
+            // Capture id om closure-issues te vermijden
             string capturedId = s.id;
 
-            // If the prefab has a Button, clicking the row accuses that suspect
             var btn = go.GetComponent<Button>();
             if (btn != null)
             {
@@ -89,14 +88,31 @@ public class GameHUDController : MonoBehaviour
         if (GameManager.I == null || metricsText == null) return;
 
         var remaining = GameManager.I.RemainingSuspects().ToList();
-        var (k, l) = MetricsCalculator.KLForDataset(remaining);
+        bool roundB = (GameManager.I.phase == RoundPhase.RoundB);
+
+        var m = MetricsCalculator.ComputeAll(
+            remaining,
+            killerId: GameManager.I.GetKiller()?.id,
+            roundB: roundB
+        );
+
         var ui = GameManager.I.settings?.ui;
+        string header = ui?.metrics ?? "Privacy-metrics";
+        string kLabel = ui?.kAnon ?? "k";
+        string lLabel = ui?.lDiv ?? "l";
 
-        string header = ui != null ? ui.metrics : "Metrics";
-        string kAnon = ui != null ? ui.kAnon : "k-anon";
-        string lDiv = ui != null ? ui.lDiv : "l-div";
+        // Kort & begrijpelijk + de relevante technische waarden
+        // k: gemiddelde / max / dader
+        // l: max / dader
+        // plus 1 zinnetje duiding
+        string summary = BuildFriendlySummary(m);
 
-        metricsText.text = $"{header}\n{kAnon}: {k}\n{lDiv}: {l}";
+        metricsText.text =
+            $"{header}\n" +
+            $"{kLabel} (gem/max/dader): {m.kAvg:F1} / {m.kMax} / {Mathf.Max(1, m.killerK)}\n" +
+            $"{lLabel} (max/dader): {m.lMax} / {Mathf.Max(1, m.killerL)}\n" +
+            $"groups: {m.groupCount}, remaining: {m.remainingCount}\n" +
+            summary;
     }
 
     // Beschuldig-knop: als er nog precies 1 over is, beschuldig die automatisch.
@@ -126,5 +142,23 @@ public class GameHUDController : MonoBehaviour
     {
         if (string.IsNullOrEmpty(id) || GameManager.I == null) return;
         GameManager.I.Accuse(id);
+    }
+
+    // ---- korte, niet-technische duiding op één regel ----
+    static string BuildFriendlySummary(MetricsCalculator.MetricsResult m)
+    {
+        string kPhrase =
+            (m.killerK <= 1) ? "dader valt op" :
+            (m.killerK <= 2) ? "dader valt nog op" :
+            "dader gaat op in de massa";
+
+        string lPhrase =
+            (m.killerL <= 1) ? "weinig variatie" :
+            (m.killerL == 2) ? "enige variatie" :
+            "veel variatie";
+
+        // Houd het super kort i.v.m. ruimte:
+        // Legende: k↑ = meer look-alikes, l↑ = meer beroep-variatie
+        return $"(k↑ = meer look-alikes, l↑ = meer variatie) • {kPhrase}; banen: {lPhrase}";
     }
 }

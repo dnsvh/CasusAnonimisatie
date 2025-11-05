@@ -344,13 +344,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cfd604ecdd2962848836d6ad59ffc4b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DebriefController
-  autoBuildUI: 1
-  titleLabel: {fileID: 0}
+  titleText: {fileID: 0}
+  killerText: {fileID: 0}
+  totalTimeText: {fileID: 0}
   explanationText: {fileID: 0}
-  resultText: {fileID: 0}
+  leaderboardHeader: {fileID: 0}
+  leaderboardBody: {fileID: 0}
   nicknameInput: {fileID: 1540490138}
   saveButton: {fileID: 0}
-  playAgainButton: {fileID: 0}
+  backButton: {fileID: 0}
 --- !u!4 &578174134
 Transform:
   m_ObjectHideFlags: 0
@@ -599,7 +601,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1389755630
 RectTransform:
   m_ObjectHideFlags: 0
