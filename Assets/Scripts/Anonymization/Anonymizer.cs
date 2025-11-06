@@ -11,10 +11,10 @@ public static class Anonymizer
             copy.suspects.Add(new Suspect {
                 id = s.id,
                 name = s.name,
-                age = s.age, // we bin in logic/UI when needed
+                age = s.age, 
                 gender = s.gender,
                 district = s.district,
-                postcode = GeneralizePostcode(s.postcode, 2), // keep first 2 chars
+                postcode = GeneralizePostcode(s.postcode, 2), 
                 occupation = s.occupation,
                 eliminated = false
             });

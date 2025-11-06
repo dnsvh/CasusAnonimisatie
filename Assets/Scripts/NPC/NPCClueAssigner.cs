@@ -13,11 +13,9 @@ public class NPCClueAssigner : MonoBehaviour
     [ContextMenu("Assign clues to all NPCs in scene")]
     public void AssignAll()
     {
-        // New API in Unity 6
         var npcs = Object.FindObjectsByType<NPCDialogue>(FindObjectsSortMode.None);
         if (npcs == null || npcs.Length == 0) return;
 
-        // Cycle through a set of different clue types so NPCs don't repeat the same hint
         var types = new[]
         {
             ClueType.AgeExact,

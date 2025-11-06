@@ -2,7 +2,7 @@ using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI; // for RectTransform anchoring helpers
+using UnityEngine.UI; 
 
 public class LeaderboardController : MonoBehaviour
 {
@@ -11,32 +11,30 @@ public class LeaderboardController : MonoBehaviour
 
     void Start()
     {
-        // 1) Ensure we have UI labels (auto-find or auto-create so you don't need to drag)
         EnsureLabels();
 
-        // 2) Get settings (ScriptableObject) without JSON
         var settings = (GameManager.I != null && GameManager.I.settings != null)
             ? GameManager.I.settings
-            : Resources.Load<GameSettings>("Data/GameSettings"); // Asset path: Assets/Resources/Data/GameSettings.asset
+            : Resources.Load<GameSettings>("Data/GameSettings"); 
 
         if (settings == null)
         {
             Debug.LogWarning("[Leaderboard] GameSettings not found at Resources/Data/GameSettings. Using fallbacks.");
         }
 
-        // Title text
+
         var title = (settings != null && settings.ui.leaderboard != null) ? settings.ui.leaderboard : "Leaderboard";
         header.text = title;
 
-        // 3) Load leaderboard entries
-        var table = LeaderboardManager.Load(); // assume it never throws; handle nulls anyway
+
+        var table = LeaderboardManager.Load(); 
         var sb = new StringBuilder();
         if (table != null && table.scores != null && table.scores.Count > 0)
         {
             int i = 1;
             foreach (var s in table.scores)
             {
-                // defend against null/empty names
+
                 var name = string.IsNullOrWhiteSpace(s.name) ? "—" : s.name;
                 sb.AppendLine($"{i,2}. {name} — {s.time:F1}s");
                 i++;
@@ -50,7 +48,7 @@ public class LeaderboardController : MonoBehaviour
 
     public void OnBack()
     {
-        // If you have a SceneNames helper, keep it; else fall back to literal.
+
 #if UNITY_EDITOR
         try { SceneManager.LoadScene(SceneNames.Start); }
         catch { SceneManager.LoadScene("Start"); }
@@ -60,11 +58,10 @@ public class LeaderboardController : MonoBehaviour
 #endif
     }
 
-    // ---------- helpers ----------
 
     void EnsureLabels()
     {
-        // Try to find by common names if not assigned
+
         if (header == null)
         {
             header = TryFindText("Title") ?? TryFindText("Header");
@@ -74,7 +71,6 @@ public class LeaderboardController : MonoBehaviour
             body = TryFindText("Explanation") ?? TryFindText("Body");
         }
 
-        // If still missing, create simple labels under the first Canvas we find
         var canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null) return;
 
@@ -126,7 +122,7 @@ public class LeaderboardController : MonoBehaviour
         tmp.fontSize = fontSize;
         tmp.alignment = align;
         tmp.enableWordWrapping = true;
-        tmp.text = ""; // caller sets real text
+        tmp.text = ""; 
         return tmp;
     }
 }

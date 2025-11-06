@@ -41,7 +41,6 @@ public class NPCInteractable : MonoBehaviour
 
         bool anonymized = gm.phase == RoundPhase.RoundB;
 
-        // Ask GM for a non-duplicate clue type for this round
         var effectiveType = gm.ChooseClueType(dialogue.clueType);
         gm.MarkClueUsed(effectiveType);
 
@@ -56,7 +55,6 @@ public class NPCInteractable : MonoBehaviour
 
     static string Post2(string pc) => Anonymizer.GeneralizePostcode(pc, 2);
 
-    // Round A precise, Round B generalized
     void ApplyFilter(GameManager gm, ClueType type, bool anonymized, Suspect k)
     {
         switch (type)
@@ -86,7 +84,7 @@ public class NPCInteractable : MonoBehaviour
                 break;
 
             case ClueType.Occupation:
-                if (anonymized) gm.EliminateByClue(s => true); // too vague to filter hard
+                if (anonymized) gm.EliminateByClue(s => true); 
                 else            gm.EliminateByClue(s => s.occupation == k.occupation);
                 break;
         }

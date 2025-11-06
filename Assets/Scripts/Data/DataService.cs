@@ -3,34 +3,89 @@ using UnityEngine;
 
 public static class DataService
 {
-    // Loads JSON from Resources/Data/*.json
-    public static T LoadFromResources<T>(string fileNameWithoutExt)
+    public static T LoadFromResources<T>(string fileNameWithoutExt) where T : class
     {
-        var txt = Resources.Load<TextAsset>($"Data/{fileNameWithoutExt}");
-        if (txt == null)
+        // Try exact path first
+        var obj = LoadFromResourcesInternal<T>(fileNameWithoutExt);
+        if (obj != null) return obj;
+
+        // Try with/without "Data/" fallback
+        if (!fileNameWithoutExt.StartsWith("Data/"))
         {
-            Debug.LogError($"[DataService] Missing Resources/Data/{fileNameWithoutExt}.json");
-            return default;
+            obj = LoadFromResourcesInternal<T>("Data/" + fileNameWithoutExt);
+            if (obj != null) return obj;
         }
-        return JsonUtility.FromJson<T>(txt.text);
+        else
+        {
+            obj = LoadFromResourcesInternal<T>(fileNameWithoutExt.Replace("Data/", ""));
+            if (obj != null) return obj;
+        }
+
+        Debug.LogWarning($"[DataService] Resources JSON NOT found for '{fileNameWithoutExt}'. " +
+                         $"Tried variations with/without 'Data/'. Ensure file is under Assets/Resources/... and named correctly.");
+        return null;
     }
 
-    // Save to persistentDataPath (for runtime results like Round B or leaderboard)
+    private static T LoadFromResourcesInternal<T>(string pathNoExt) where T : class
+    {
+        TextAsset ta = Resources.Load<TextAsset>(pathNoExt);
+        if (ta == null) return null;
+
+        try
+        {
+            var result = JsonUtility.FromJson<T>(ta.text);
+            if (result == null)
+            {
+                Debug.LogWarning($"[DataService] JSON parse returned null for '{pathNoExt}'. " +
+                                 $"Check that the JSON structure matches type '{typeof(T).Name}'.");
+                return null;
+            }
+
+            Debug.Log($"[DataService] Loaded JSON from Resources: '{pathNoExt}'. Bytes={ta.bytes?.Length ?? ta.text.Length}");
+            return result;
+        }
+        catch (System.SystemException ex)
+        {
+            Debug.LogError($"[DataService] Failed to parse JSON for '{pathNoExt}': {ex.Message}\nContent preview:\n{Preview(ta.text)}");
+            return null;
+        }
+    }
+
+    private static string Preview(string s, int max = 300)
+    {
+        if (string.IsNullOrEmpty(s)) return "<empty>";
+        return s.Length <= max ? s : s.Substring(0, max) + "...";
+    }
+
     public static void SaveToPersistent<T>(string fileName, T data)
     {
-        var path = Path.Combine(Application.persistentDataPath, fileName);
-        var json = JsonUtility.ToJson(data, true);
-        File.WriteAllText(path, json);
-#if UNITY_EDITOR
-        Debug.Log($"[DataService] Saved {fileName} at {path}");
-#endif
+        try
+        {
+            var json = JsonUtility.ToJson(data, true);
+            var path = Path.Combine(Application.persistentDataPath, fileName);
+            File.WriteAllText(path, json);
+            Debug.Log($"[DataService] Saved {fileName} at {path}");
+        }
+        catch (System.SystemException ex)
+        {
+            Debug.LogError($"[DataService] SaveToPersistent failed for {fileName}: {ex}");
+        }
     }
 
-    public static T LoadFromPersistent<T>(string fileName)
+    public static T LoadFromPersistent<T>(string fileName) where T : class
     {
-        var path = Path.Combine(Application.persistentDataPath, fileName);
-        if (!File.Exists(path)) return default;
-        var json = File.ReadAllText(path);
-        return JsonUtility.FromJson<T>(json);
+        try
+        {
+            var path = Path.Combine(Application.persistentDataPath, fileName);
+            if (!File.Exists(path)) return null;
+            var json = File.ReadAllText(path);
+            var result = JsonUtility.FromJson<T>(json);
+            return result;
+        }
+        catch (System.SystemException ex)
+        {
+            Debug.LogError($"[DataService] LoadFromPersistent failed for {fileName}: {ex}");
+            return null;
+        }
     }
 }

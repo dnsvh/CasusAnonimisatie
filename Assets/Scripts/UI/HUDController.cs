@@ -14,15 +14,29 @@ public class GameHUDController : MonoBehaviour
 
     [Header("List")]
     public Transform listRoot;
-    public GameObject listItemPrefab; // Button + TMP_Text
+    public GameObject listItemPrefab; 
 
     [Header("Buttons")]
     public Button accuseButton;
+
+    // cache the list font so we don't keep loading it
+    static TMP_FontAsset sListFont;
 
     void Awake() => I = this;
 
     void Start()
     {
+        if (sListFont == null)
+        {
+
+            sListFont = Resources.Load<TMP_FontAsset>("Fonts/VT323-Regular SDF");
+
+            if (sListFont == null)
+                sListFont = Resources.Load<TMP_FontAsset>("VT323-Regular SDF");
+            if (sListFont == null)
+                Debug.LogWarning("[HUD] Could not find VT323-Regular SDF in Resources. List will use prefab's font.");
+        }
+
         var ui = GameManager.I?.settings?.ui;
         if (ui != null)
         {
@@ -63,14 +77,23 @@ public class GameHUDController : MonoBehaviour
         foreach (var s in GameManager.I.RemainingSuspects().OrderBy(x => x.name))
         {
             var go = Instantiate(listItemPrefab, listRoot);
-            var text = go.GetComponentInChildren<TMP_Text>();
-            if (text != null)
-                text.text = $"{s.name} ({s.age}, {s.gender}, {s.postcode})";
-
-            // Capture id om closure-issues te vermijden
-            string capturedId = s.id;
 
             var btn = go.GetComponent<Button>();
+            var img = go.GetComponent<Image>() ?? (btn != null ? btn.GetComponent<Image>() : null);
+            if (img != null)
+            {
+                img.color = new Color(1f, 1f, 1f, 0.5f);
+            }
+
+            var text = go.GetComponentInChildren<TMP_Text>();
+            if (text != null)
+            {
+                text.text = $"{s.name} ({s.age}, {s.gender}, {s.postcode})";
+                if (sListFont != null) text.font = sListFont;
+            }
+
+            string capturedId = s.id;
+
             if (btn != null)
             {
                 btn.onClick.RemoveAllListeners();
@@ -101,10 +124,6 @@ public class GameHUDController : MonoBehaviour
         string kLabel = ui?.kAnon ?? "k";
         string lLabel = ui?.lDiv ?? "l";
 
-        // Kort & begrijpelijk + de relevante technische waarden
-        // k: gemiddelde / max / dader
-        // l: max / dader
-        // plus 1 zinnetje duiding
         string summary = BuildFriendlySummary(m);
 
         metricsText.text =
@@ -115,8 +134,6 @@ public class GameHUDController : MonoBehaviour
             summary;
     }
 
-    // Beschuldig-knop: als er nog precies 1 over is, beschuldig die automatisch.
-    // Anders: toon duidelijke instructie.
     public void OnAccuseClicked()
     {
         if (GameManager.I == null) return;
@@ -144,7 +161,7 @@ public class GameHUDController : MonoBehaviour
         GameManager.I.Accuse(id);
     }
 
-    // ---- korte, niet-technische duiding op één regel ----
+
     static string BuildFriendlySummary(MetricsCalculator.MetricsResult m)
     {
         string kPhrase =
@@ -157,8 +174,6 @@ public class GameHUDController : MonoBehaviour
             (m.killerL == 2) ? "enige variatie" :
             "veel variatie";
 
-        // Houd het super kort i.v.m. ruimte:
-        // Legende: k↑ = meer look-alikes, l↑ = meer beroep-variatie
         return $"(k↑ = meer look-alikes, l↑ = meer variatie) • {kPhrase}; banen: {lPhrase}";
     }
 }

@@ -11,10 +11,9 @@ public class GameManager : MonoBehaviour
     public GameSettings settings;
     public RoundPhase phase = RoundPhase.RoundA;
 
-    // Timer die in de HUD wordt opgeteld
     public float roundTimer = 0f;
 
-    // Tijden per ronde + laatst bekende totaaltijd (voor Debrief/Leaderboard)
+    // Tijden per ronde + laatst bekende totaaltijd 
     public float roundASeconds = 0f;
     public float roundBSeconds = 0f;
     public float lastTotalSeconds = 0f;
@@ -22,11 +21,9 @@ public class GameManager : MonoBehaviour
     public SuspectDataset datasetA;
     public SuspectDataset datasetB;
 
-    // 🔸 Separate killers per round
     [SerializeField] private string killerIdA = null;
     [SerializeField] private string killerIdB = null;
 
-    // Clue-variatie tracking
     private readonly HashSet<ClueType> usedCluesA = new HashSet<ClueType>();
     private readonly HashSet<ClueType> usedCluesB = new HashSet<ClueType>();
 
@@ -41,17 +38,24 @@ public class GameManager : MonoBehaviour
         if (settings == null)
             settings = Resources.Load<GameSettings>("Data/GameSettings");
 
-        if (datasetA == null || datasetA.suspects == null || datasetA.suspects.Count == 0)
-            datasetA = GenerateSynthetic(30);
+        var dsAFromJson = DataService.LoadFromResources<SuspectDataset>("Data/hardcoded_suspects");
+        var dsBFromJson = DataService.LoadFromResources<SuspectDataset>("Data/hardcoded_suspects_b");
 
-        if (datasetB == null || datasetB.suspects == null || datasetB.suspects.Count == 0)
-            datasetB = CloneDataset(datasetA); // OK to keep; killers now differ
+        if (dsAFromJson != null && dsAFromJson.suspects != null && dsAFromJson.suspects.Count > 0)
+            datasetA = EnsureIdsAndClean(dsAFromJson);
+        else if (datasetA == null || datasetA.suspects == null || datasetA.suspects.Count == 0)
+            datasetA = GenerateSynthetic(30); 
+
+        if (dsBFromJson != null && dsBFromJson.suspects != null && dsBFromJson.suspects.Count > 0)
+            datasetB = EnsureIdsAndClean(dsBFromJson);
+        else if (datasetB == null || datasetB.suspects == null || datasetB.suspects.Count == 0)
+            datasetB = CloneDataset(datasetA); 
 
         // Ensure Round A killer
         if (string.IsNullOrEmpty(killerIdA) && datasetA.suspects.Count > 0)
             killerIdA = datasetA.suspects[UnityEngine.Random.Range(0, datasetA.suspects.Count)].id;
 
-        // Ensure Round B killer (prefer different from A)
+        // Ensure Round B killer 
         if ((string.IsNullOrEmpty(killerIdB) || killerIdB == killerIdA) && datasetB.suspects.Count > 0)
         {
             if (datasetB.suspects.Count > 1)
@@ -77,13 +81,11 @@ public class GameManager : MonoBehaviour
     public IEnumerable<Suspect> RemainingSuspects()
         => CurrentDataset().suspects.Where(s => !s.eliminated);
 
-    // 🔸 For existing callers: returns killer for the **current** round
     public Suspect GetKiller()
         => (phase == RoundPhase.RoundB)
             ? datasetB?.suspects?.FirstOrDefault(s => s.id == killerIdB)
             : datasetA?.suspects?.FirstOrDefault(s => s.id == killerIdA);
 
-    // 🔸 Explicit helpers (Debrief uses Round B)
     public Suspect GetKillerOfRoundA() => datasetA?.suspects?.FirstOrDefault(s => s.id == killerIdA);
     public Suspect GetKillerOfRoundB() => datasetB?.suspects?.FirstOrDefault(s => s.id == killerIdB);
 
@@ -98,7 +100,6 @@ public class GameManager : MonoBehaviour
         {
             if (string.IsNullOrEmpty(killerIdB) && datasetB?.suspects?.Count > 0)
             {
-                // Prefer different from A if possible
                 var pool = (datasetB.suspects.Count > 1)
                     ? datasetB.suspects.Where(s => s.id != killerIdA).ToList()
                     : datasetB.suspects.ToList();
@@ -109,7 +110,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // Backward-compat call used by Accuse: keep name the same
     void EnsureKillerSelected() => EnsureKillerSelectedForCurrentRound();
 
     public void EliminateByClue(Func<Suspect, bool> keepPredicate)
@@ -136,14 +136,13 @@ public class GameManager : MonoBehaviour
         usedCluesA.Clear();
         foreach (var s in datasetA.suspects) s.eliminated = false;
 
-        // (Re)roll Round A killer if somehow missing
         if (string.IsNullOrEmpty(killerIdA) && datasetA.suspects.Count > 0)
             killerIdA = datasetA.suspects[UnityEngine.Random.Range(0, datasetA.suspects.Count)].id;
     }
 
     public void BeginRoundB()
     {
-        // Leg de eindtijd van A vast voordat we resetten
+        // eindtijd A vastleggen
         roundASeconds = roundTimer;
 
         phase = RoundPhase.RoundB;
@@ -151,7 +150,6 @@ public class GameManager : MonoBehaviour
         usedCluesB.Clear();
         foreach (var s in datasetB.suspects) s.eliminated = false;
 
-        // (Re)roll Round B killer, ensure different from A if possible
         if (datasetB?.suspects != null && datasetB.suspects.Count > 0)
         {
             if (datasetB.suspects.Count > 1)
@@ -170,8 +168,8 @@ public class GameManager : MonoBehaviour
         Debug.Log($"[GM] BeginRoundB. killerIdA={killerIdA}, killerIdB={killerIdB}");
     }
 
-    // Accuse flow: correct in A -> naar B; incorrect in A -> Start.
-    // In B -> Debrief (win/lose).
+    // Accuse flow: correct in A -> naar B; incorrect in A -> Start
+    // In B -> Debrief (win/lose)
     public void Accuse(string suspectId)
     {
         EnsureKillerSelectedForCurrentRound();
@@ -189,13 +187,12 @@ public class GameManager : MonoBehaviour
             {
                 lastAccuseCorrect = true;
                 Debug.Log("[GM] Accuse: CORRECT (Round A) -> Round B");
-                BeginRoundB(); // note: zet roundASeconds
+                BeginRoundB(); // zet roundASeconds
                 SceneManager.LoadScene("TheCityAnon");
             }
             else
             {
                 lastAccuseCorrect = false;
-                // Voor volledigheid: totale tijd is alleen ronde A
                 roundASeconds = roundTimer;
                 lastTotalSeconds = roundASeconds;
                 Debug.Log("[GM] Accuse: WRONG (Round A) -> Start");
@@ -204,7 +201,6 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            // Leg eindtijd ronde B vast en totaliseer
             roundBSeconds = roundTimer;
             lastTotalSeconds = Mathf.Max(0f, roundASeconds) + Mathf.Max(0f, roundBSeconds);
 
@@ -222,7 +218,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // --- Clue variety (AgeExact/AgeRange = één “age bucket”) ---
     public ClueType ChooseClueType(ClueType preferred)
     {
         var used = (phase == RoundPhase.RoundB) ? usedCluesB : usedCluesA;
@@ -260,13 +255,39 @@ public class GameManager : MonoBehaviour
         used.Add(t);
     }
 
-    // --- dataset helpers ---
+    private SuspectDataset EnsureIdsAndClean(SuspectDataset ds)
+    {
+        if (ds?.suspects == null) return ds;
+        var seen = new HashSet<string>();
+        foreach (var s in ds.suspects)
+        {
+            if (string.IsNullOrWhiteSpace(s.id))
+                s.id = Guid.NewGuid().ToString("N").Substring(0, 8);
+            if (seen.Contains(s.id))
+                s.id = Guid.NewGuid().ToString("N").Substring(0, 8);
+            seen.Add(s.id);
+
+            // reset eliminations bij start
+            s.eliminated = false;
+
+            if (string.IsNullOrWhiteSpace(s.district))
+                s.district = "Onbekend";
+        }
+        return ds;
+    }
+
+    // Genereer synthetische data met provincies + postcode "1111AA"
     private SuspectDataset GenerateSynthetic(int count)
     {
         var rnd = new System.Random();
         var ds = new SuspectDataset();
+
         string[] genders = { "M", "F" };
-        string[] districts = { "Noord", "Zuid", "Oost", "West", "Centrum" };
+        // We gebruiken het bestaande veld 'district' om een provincie-naam op te slaan
+        string[] provinces = {
+            "Groningen","Friesland","Drenthe","Overijssel","Flevoland","Gelderland",
+            "Utrecht","Noord-Holland","Zuid-Holland","Zeeland","Noord-Brabant","Limburg"
+        };
         string[] occupations = { "Bakker", "Leraar", "Student", "Arts", "Chauffeur", "Programmeur" };
 
         for (int i = 0; i < count; i++)
@@ -277,14 +298,22 @@ public class GameManager : MonoBehaviour
                 name = $"Persoon{i + 1}",
                 age = rnd.Next(18, 70),
                 gender = genders[rnd.Next(genders.Length)],
-                district = districts[rnd.Next(districts.Length)],
-                postcode = $"{(char)('1' + rnd.Next(0, 8))}{(char)('0' + rnd.Next(0, 9))}{(char)('A' + rnd.Next(0, 26))}{(char)('A' + rnd.Next(0, 26))}",
+                district = provinces[rnd.Next(provinces.Length)],   // provincie in 'district'
+                postcode = GenerateDutchPostcode(rnd),              
                 occupation = occupations[rnd.Next(occupations.Length)],
                 eliminated = false
             };
             ds.suspects.Add(s);
         }
         return ds;
+    }
+
+    private static string GenerateDutchPostcode(System.Random rnd)
+    {
+        int n = rnd.Next(1000, 10000); // 1000..9999
+        char a = (char)('A' + rnd.Next(0, 26));
+        char b = (char)('A' + rnd.Next(0, 26));
+        return $"{n}{a}{b}";
     }
 
     private SuspectDataset CloneDataset(SuspectDataset src)
@@ -294,12 +323,12 @@ public class GameManager : MonoBehaviour
         {
             ds.suspects.Add(new Suspect
             {
-                id = s.id,               // keeping ids is fine; we pick a different killerIdB
+                id = s.id,            
                 name = s.name,
                 age = s.age,
                 gender = s.gender,
-                district = s.district,
-                postcode = s.postcode,
+                district = s.district,  
+                postcode = s.postcode,   
                 occupation = s.occupation,
                 eliminated = false
             });

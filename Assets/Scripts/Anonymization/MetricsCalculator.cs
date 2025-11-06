@@ -5,11 +5,6 @@ using UnityEngine;
 
 public static class MetricsCalculator
 {
-    /// <summary>
-    /// Everything the HUD wants in one pass.
-    /// Values are computed on the "remaining" suspects the HUD passes in.
-    /// In Round B, age buckets are coarser so groups should be larger.
-    /// </summary>
     public static MetricsResult ComputeAll(IReadOnlyList<Suspect> suspects, string killerId, bool roundB)
     {
         var result = new MetricsResult();
@@ -17,18 +12,16 @@ public static class MetricsCalculator
         if (suspects == null || suspects.Count == 0)
             return result; // all zeros
 
-        var groups = GroupByQIs(suspects, roundB); // List<IGrouping<QIKey, Suspect>>
+        var groups = GroupByQIs(suspects, roundB); 
         if (groups.Count == 0)
             return result;
 
-        // K-anonymity stats
         var kSizes = groups.Select(g => g.Count()).OrderBy(n => n).ToArray();
         result.kMin = Math.Max(1, kSizes.First());
         result.kMedian = kSizes[kSizes.Length / 2];
         result.kMax = kSizes.Last();
         result.kAvg = (float)kSizes.Average();
 
-        // L-diversity per group (distinct occupations inside group)
         var lSizes = groups.Select(g =>
                 g.Select(s => Safe(s.occupation))
                  .Where(x => !string.IsNullOrWhiteSpace(x))
@@ -45,7 +38,6 @@ public static class MetricsCalculator
             result.lMax = lSizes.Last();
         }
 
-        // Killer stats (if killer is still among remaining)
         if (!string.IsNullOrEmpty(killerId))
         {
             var killer = suspects.FirstOrDefault(s => s.id == killerId);
@@ -70,9 +62,6 @@ public static class MetricsCalculator
         return result;
     }
 
-    /// <summary>
-    /// Back-compat used by older code paths (k,l only).
-    /// </summary>
     public static (int k, int l) KLForDataset(IEnumerable<Suspect> suspectsEnum)
     {
         var suspects = suspectsEnum?.ToList() ?? new List<Suspect>();
@@ -94,7 +83,6 @@ public static class MetricsCalculator
         return (k, l);
     }
 
-    // ----------------- internals -----------------
 
     static List<IGrouping<QIKey, Suspect>> GroupByQIs(IReadOnlyList<Suspect> suspects, bool roundB)
     {
@@ -112,7 +100,6 @@ public static class MetricsCalculator
         );
     }
 
-    // 5-year buckets in Round A; 10-year buckets in Round B (coarser)
     static string AgeBucket(int age, bool roundB)
     {
         if (age < 0) return "?";
@@ -158,7 +145,6 @@ public static class MetricsCalculator
         }
     }
 
-    // What we return to HUD
     public struct MetricsResult
     {
         public int kMin, kMedian, kMax;

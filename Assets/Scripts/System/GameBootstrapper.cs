@@ -16,7 +16,6 @@ public class GameBootstrapper : MonoBehaviour
             if (gm == null) gm = root.AddComponent<GameManager>();
         }
 
-        // Set phase based on scene
         if (GameManager.I != null)
         {
             var scene = SceneManager.GetActiveScene().name;

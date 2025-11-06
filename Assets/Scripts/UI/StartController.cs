@@ -1,7 +1,7 @@
 ﻿using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.InputSystem; // NEW INPUT SYSTEM
+using UnityEngine.InputSystem; 
 
 public class StartController : MonoBehaviour
 {
@@ -9,7 +9,7 @@ public class StartController : MonoBehaviour
 
     void Update()
     {
-        // Accept keyboard, mouse, or gamepad "any key" style presses
+        // Accept keyboard, mouse, or gamepad "any key" style presses (no shot i made it gamepad compatible im goated)
         bool keyboard = Keyboard.current != null && Keyboard.current.anyKey.wasPressedThisFrame;
 
         bool mouse = false;

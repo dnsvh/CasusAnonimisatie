@@ -21,19 +21,38 @@ public class DebriefController : MonoBehaviour
     [SerializeField] Button saveButton;
 
     [SerializeField] Button backButton;
-    [SerializeField] TextMeshProUGUI explanationText;
+
 
     const int TopN = 10;
 
+
+    static TMP_FontAsset sPixFont;
+    static void LoadPixFont()
+    {
+        if (sPixFont != null) return;
+        sPixFont = Resources.Load<TMP_FontAsset>("Fonts/VT323-Regular SDF");
+        if (sPixFont == null)
+            sPixFont = Resources.Load<TMP_FontAsset>("VT323-Regular SDF");
+        if (sPixFont == null)
+            Debug.LogWarning("[Debrief] VT323-Regular SDF niet gevonden in Resources; Debrief gebruikt fallback font.");
+    }
+    static void ApplyFont(TMP_Text t)
+    {
+        if (t == null) return;
+        if (sPixFont != null) t.font = sPixFont;
+    }
+
     void Start()
     {
+        LoadPixFont();
+
         EnsureLayout();
-        RebuildEntryRow();        // fresh, always-on-top row with proper input
+        RebuildEntryRow();
         RefreshUI();
         HideLegacyDuplicates();
     }
 
-    // ---------------- Layout ----------------
+
     void EnsureLayout()
     {
         var rootCanvas = FindFirstObjectByType<Canvas>();
@@ -48,16 +67,18 @@ public class DebriefController : MonoBehaviour
             cs.matchWidthOrHeight = 0.5f;
         }
 
-        // Title center-top
+
         if (!titleText) titleText = MakeText("Title", rootCanvas.transform,
             new(0.5f, 1), new(0.5f, 1), new(0.5f, 1),
             new(0, -70), Vector2.zero, 64, TextAlignmentOptions.Center, true);
+        ApplyFont(titleText);
 
         if (!killerText) killerText = MakeText("Killer", rootCanvas.transform,
             new(0.5f, 1), new(0.5f, 1), new(0.5f, 1),
             new(0, -140), Vector2.zero, 38, TextAlignmentOptions.Center, true);
+        ApplyFont(killerText);
 
-        // Right block
+
         var rightPanel = EnsurePanel("RightPanel", rootCanvas.transform,
             new(1, 1), new(1, 1), new(1, 1),
             new(-24, -24), new(520, 560), 0f, false);
@@ -65,12 +86,15 @@ public class DebriefController : MonoBehaviour
         if (!totalTimeText) totalTimeText = MakeText("TotalTime", rightPanel,
             new(1, 1), new(1, 1), new(1, 1),
             new(-8, -8), Vector2.zero, 30, TextAlignmentOptions.TopRight, true);
+        ApplyFont(totalTimeText);
 
         if (!leaderboardHeader) leaderboardHeader = MakeText("LeaderboardHeader", rightPanel,
             new(1, 1), new(1, 1), new(1, 1),
             new(-8, -52), Vector2.zero, 26, TextAlignmentOptions.TopRight, true);
+        ApplyFont(leaderboardHeader);
 
-        var scroll = EnsureScroll("LeaderboardScroll", rightPanel, new(-8, -88), new(500, 360), 0.10f);
+
+        var scroll = EnsureScroll("LeaderboardScroll", rightPanel, new(-8, -88), new(500, 360), 0.50f);
 
         if (!leaderboardBody)
         {
@@ -81,19 +105,8 @@ public class DebriefController : MonoBehaviour
             rt.offsetMin = new Vector2(12, -360);
             rt.offsetMax = new Vector2(-4, 0);
         }
+        ApplyFont(leaderboardBody);
 
-        // Bottom explanation
-        var bottomPanel = EnsurePanel("BottomExplanation", rootCanvas.transform,
-            new(0.5f, 0), new(0.5f, 0), new(0.5f, 0),
-            new(0, 160), new(1300, 230), 0f, false);
-
-        if (!explanationText)
-        {
-            explanationText = MakeText("Explanation", bottomPanel,
-                new(0, 0), new(1, 1), new(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero, 22, TextAlignmentOptions.Center, true);
-            explanationText.textWrappingMode = TextWrappingModes.Normal;
-        }
 
         if (!backButton)
         {
@@ -102,6 +115,8 @@ public class DebriefController : MonoBehaviour
                 new(0, 0), new(0, 0), new(0, 0));
             backButton.onClick.AddListener(OnBack);
         }
+        var backImg = backButton.GetComponent<Image>();
+        if (backImg) backImg.color = new Color(0f, 0f, 0f, 0.5f); 
 
         if (!FindFirstObjectByType<EventSystem>())
         {
@@ -130,37 +145,37 @@ public class DebriefController : MonoBehaviour
 
         var subCanvas = rowGO.GetComponent<Canvas>();
         subCanvas.overrideSorting = true;
-        subCanvas.sortingOrder = 5000;   // sits above other UI
+        subCanvas.sortingOrder = 5000;
 
-        // Label
+
         nameLabel = MakeText("NaamLabel", entryRow,
             new(0, 0.5f), new(0, 0.5f), new(0, 0.5f),
             new(6, 0), new(90, 48), 22, TextAlignmentOptions.MidlineLeft, false);
         nameLabel.text = "Naam:";
+        ApplyFont(nameLabel);
 
-        // Save button (120 px)
+
         saveButton = MakeButton("Opslaan", entryRow,
             new(-2, 0), new(120, 48),
             new(1, 0.5f), new(1, 0.5f), new(1, 0.5f));
         saveButton.transform.SetAsLastSibling();
 
-        // Input (280 px) – TMP standard structure using RectMask2D
+
         nicknameInput = MakeTMPInput(
             "Nickname", entryRow,
             new(0, 0.5f), new(0, 0.5f), new(0, 0.5f),
             new(100, 0), new(280, 48));
 
-        // make sure the button is not covered
-        nicknameInput.GetComponent<RectTransform>().SetSiblingIndex(saveButton.transform.GetSiblingIndex() - 1);
+        nicknameInput.GetComponent<RectTransform>()
+            .SetSiblingIndex(saveButton.transform.GetSiblingIndex() - 1);
     }
 
-    // ---------------- Content ----------------
+
     void RefreshUI()
     {
         var gm = GameManager.I;
 
         SetText(titleText, gm && gm.lastAccuseCorrect ? "Gefeliciteerd!" : "Lastig hè?");
-        // 🔸 Round B killer only
         SetText(killerText, $"De dader was: {gm?.GetKillerOfRoundB()?.name ?? "onbekend"}");
 
         float total = gm && gm.lastTotalSeconds > 0f
@@ -197,14 +212,7 @@ public class DebriefController : MonoBehaviour
             saveButton.onClick.AddListener(() => OnSaveNickname(total));
         }
 
-        SetText(explanationText,
-            "Uitleg\n" +
-            "• Je speelde twee rondes: Round A (precies) en Round B (geanonimiseerd).\n" +
-            "• De dader in Round B is anders dan in Round A.\n" +
-            "• Totale tijd = tijd van beide rondes samen.\n" +
-            "• Win je en sta je bij de snelste 10? Vul je naam in en sla je tijd op.\n" +
-            "• Hoger k/l = meer privacy → zoeken wordt lastiger.\n",
-            wrap: true);
+
     }
 
     public void OnSaveNickname()
@@ -230,7 +238,7 @@ public class DebriefController : MonoBehaviour
 
     public void OnBack() => SceneManager.LoadScene("Start");
 
-    // ---------------- Helpers ----------------
+
     static string BuildLeaderboard(ScoreTable t)
     {
         if (t == null || t.scores == null || t.scores.Count == 0) return "Nog geen tijden.";
@@ -256,6 +264,7 @@ public class DebriefController : MonoBehaviour
         if (!t) return;
         t.text = value;
         t.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+        ApplyFont(t);
     }
 
     void Toggle(Behaviour b, bool on) { if (b) b.gameObject.SetActive(on); }
@@ -266,7 +275,7 @@ public class DebriefController : MonoBehaviour
         foreach (var txt in FindObjectsByType<TextMeshProUGUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             if (txt == titleText || txt == killerText || txt == totalTimeText ||
-                txt == leaderboardHeader || txt == leaderboardBody || txt == explanationText ||
+                txt == leaderboardHeader || txt == leaderboardBody ||
                 (nicknameInput && txt == nicknameInput.textComponent) ||
                 (nicknameInput && txt == nicknameInput.placeholder)) continue;
 
@@ -310,6 +319,8 @@ public class DebriefController : MonoBehaviour
         t.textWrappingMode = TextWrappingModes.NoWrap;
         t.overflowMode = TextOverflowModes.Overflow;
         t.raycastTarget = false;
+
+        ApplyFont(t);
         return t;
     }
 
@@ -322,7 +333,8 @@ public class DebriefController : MonoBehaviour
         rt.anchorMin = anchorMin; rt.anchorMax = anchorMax; rt.pivot = pivot;
         rt.anchoredPosition = anchored; rt.sizeDelta = size;
 
-        var img = go.GetComponent<Image>(); img.color = new Color(1, 1, 1, 0.25f);
+        var img = go.GetComponent<Image>();
+        img.color = new Color(1, 1, 1, 0.25f); // default (Opslaan)
         img.raycastTarget = true;
 
         var txt = MakeText("Label", go.transform,
@@ -330,6 +342,7 @@ public class DebriefController : MonoBehaviour
             Vector2.zero, Vector2.zero, 22,
             TextAlignmentOptions.Center, true);
         txt.text = label; txt.color = Color.white;
+        ApplyFont(txt);
 
         return go.GetComponent<Button>();
     }
@@ -342,7 +355,8 @@ public class DebriefController : MonoBehaviour
             go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Mask), typeof(ScrollRect));
             go.transform.SetParent(parent, false);
         }
-        var img = go.GetComponent<Image>(); img.color = new Color(1, 1, 1, bgAlpha);
+        var img = go.GetComponent<Image>();
+        img.color = new Color(0f, 0f, 0f, bgAlpha);
         img.raycastTarget = true;
 
         var rt = go.GetComponent<RectTransform>();
@@ -366,12 +380,10 @@ public class DebriefController : MonoBehaviour
         return sr;
     }
 
-    // NEW: reliable TMP input using RectMask2D (matches TMP template)
     TMP_InputField MakeTMPInput(string name, Transform parent,
         Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot,
         Vector2 anchored, Vector2 size)
     {
-        // Root
         var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
         root.transform.SetParent(parent, false);
         var rt = root.GetComponent<RectTransform>();
@@ -379,10 +391,9 @@ public class DebriefController : MonoBehaviour
         rt.anchoredPosition = anchored; rt.sizeDelta = size;
 
         var bg = root.GetComponent<Image>();
-        bg.color = new Color(0.97f, 0.97f, 0.97f, 1f); // light gray so the text is obvious
+        bg.color = new Color(0.97f, 0.97f, 0.97f, 1f);
         bg.raycastTarget = true;
 
-        // Text Area (matches TMP default)
         var area = new GameObject("Text Area", typeof(RectTransform));
         area.transform.SetParent(root.transform, false);
         var areaRT = area.GetComponent<RectTransform>();
@@ -392,7 +403,6 @@ public class DebriefController : MonoBehaviour
         areaRT.offsetMin = new Vector2(6, 6);
         areaRT.offsetMax = new Vector2(-6, -6);
 
-        // Viewport with RectMask2D
         var vpGO = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
         vpGO.transform.SetParent(area.transform, false);
         var vpRT = vpGO.GetComponent<RectTransform>();
@@ -402,7 +412,6 @@ public class DebriefController : MonoBehaviour
         vpRT.offsetMin = Vector2.zero;
         vpRT.offsetMax = Vector2.zero;
 
-        // Text
         var textGO = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
         textGO.transform.SetParent(vpGO.transform, false);
         var textRT = textGO.GetComponent<RectTransform>();
@@ -415,14 +424,14 @@ public class DebriefController : MonoBehaviour
         var text = textGO.GetComponent<TextMeshProUGUI>();
         text.text = "";
         text.fontSize = 28;
-        text.color = Color.black;                // live text visible
+        text.color = Color.black;
         text.enableAutoSizing = false;
         text.alignment = TextAlignmentOptions.MidlineLeft;
         text.margin = new Vector4(4, 0, 4, 0);
         text.raycastTarget = false;
         text.textWrappingMode = TextWrappingModes.NoWrap;
+        ApplyFont(text);
 
-        // Placeholder
         var phGO = new GameObject("Placeholder", typeof(RectTransform), typeof(TextMeshProUGUI));
         phGO.transform.SetParent(vpGO.transform, false);
         var phRT = phGO.GetComponent<RectTransform>();
@@ -439,8 +448,8 @@ public class DebriefController : MonoBehaviour
         ph.alignment = TextAlignmentOptions.MidlineLeft;
         ph.raycastTarget = false;
         ph.textWrappingMode = TextWrappingModes.NoWrap;
+        ApplyFont(ph);
 
-        // Wire the input
         var input = root.GetComponent<TMP_InputField>();
         input.textViewport = vpRT;
         input.textComponent = text;

@@ -4,8 +4,7 @@ public class NPCDialogue : MonoBehaviour
     [TextArea] public string introDutch = "Hoi! Ik heb iets gezien.";
     public ClueType clueType = ClueType.AgeExact;
 
-    // Generate the line shown to the player.
-    // Round A => precise; Round B => generalized.
+
     public string GetClueLine(Suspect target, bool anonymized)
     {
         int age = target.age;
@@ -18,33 +17,33 @@ public class NPCDialogue : MonoBehaviour
         {
             case ClueType.AgeExact:
                 return anonymized
-                    ? $"Ze leken {Anonymizer.AgeBin(age)}."
-                    : $"Ze leken ongeveer {age} jaar.";
+                    ? $"De persoon leek {Anonymizer.AgeBin(age)}."
+                    : $"De persoon leek ongeveer {age} jaar.";
 
             case ClueType.AgeRange:
-                // FORCE precise in Round A, generalized in Round B
+
                 return anonymized
-                    ? $"Ze leken {Anonymizer.AgeBin(age)}."
-                    : $"Ze leken ongeveer {age} jaar.";
+                    ? $"De persoon leek {Anonymizer.AgeBin(age)}."
+                    : $"De persoon leek ongeveer {age} jaar.";
 
             case ClueType.Gender:
                 return $"Ik denk dat het een {(gender == "M" ? "man" : "vrouw")} was.";
 
             case ClueType.District:
                 return anonymized
-                    ? $"Ik zag ze in de buurt van {district}."
-                    : $"Ik zag ze in {district}.";
+                    ? $"Ik zag die persoon in de buurt van {district}."
+                    : $"Ik zag die persoon in {district}.";
 
             case ClueType.Postcode2:
-                // FORCE precise in Round A, generalized in Round B
+
                 return anonymized
                     ? $"Postcode begon met {Anonymizer.GeneralizePostcode(postcode, 2)}."
                     : $"De postcode was {postcode}.";
 
             case ClueType.Occupation:
                 return anonymized
-                    ? $"Het leek alsof ze aan het werk waren."
-                    : $"Ik hoorde dat ze werken als {occupation}.";
+                    ? $"Het leek alsof die persoon aan het werk was."
+                    : $"Ik hoorde dat die persoon werkte als {occupation}.";
 
             default:
                 return "Ik weet het niet zeker.";
@@ -61,23 +60,23 @@ public class NPCDialogue : MonoBehaviour
         switch (typeOverride)
         {
             case ClueType.AgeExact:
-                // In RoundB we generalize age to a bin; in RoundA we show exact
+
                 return anonymized
-                    ? $"Ze leken {Anonymizer.AgeBin(age)}."
-                    : $"Ze leken ongeveer {age} jaar.";
+                    ? $"De persoon leek {Anonymizer.AgeBin(age)}."
+                    : $"De persoon leek ongeveer {age} jaar.";
 
             case ClueType.AgeRange:
                 return anonymized
-                    ? $"Ze leken {Anonymizer.AgeBin(age)}."
-                    : $"Ze leken ongeveer {age} jaar.";
+                    ? $"De persoon leek {Anonymizer.AgeBin(age)}."
+                    : $"De persoon leek {age} jaar.";
 
             case ClueType.Gender:
                 return $"Ik denk dat het een {(gender == "M" ? "man" : "vrouw")} was.";
 
             case ClueType.District:
                 return anonymized
-                    ? $"Ik zag ze in de buurt van {district}."
-                    : $"Ik zag ze in {district}.";
+                    ? $"Ik zag die persoon in de buurt van {district}."
+                    : $"Ik zag die persoon in {district}.";
 
             case ClueType.Postcode2:
                 return anonymized
@@ -86,8 +85,8 @@ public class NPCDialogue : MonoBehaviour
 
             case ClueType.Occupation:
                 return anonymized
-                    ? $"Het leek alsof ze aan het werk waren."
-                    : $"Ik hoorde dat ze werken als {occupation}.";
+                    ? $"Het leek alsof die persoon aan het werk was."
+                    : $"Ik hoorde dat die persoon werkt als {occupation}.";
 
             default:
                 return "Ik weet het niet zeker.";
